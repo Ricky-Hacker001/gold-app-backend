@@ -2,7 +2,18 @@ import { Router } from 'express';
 import db from '../db';
 import { RowDataPacket } from 'mysql2';
 import { authMiddleware, AuthRequest } from '../middleware/authMiddleware';
-import { cashfree } from '../cashfree'; // <-- Import the INSTANCE
+
+// Use the ES Module import style as shown in the docs
+import { Cashfree } from 'cashfree-pg';
+
+// Initialize using the constructor (v5 style)
+// We create an INSTANCE
+const cashfreeInstance = new Cashfree(
+    Cashfree.SANDBOX, // Use the Environment enum
+    process.env.CASHFREE_APP_ID || '',
+    process.env.CASHFREE_SECRET_KEY || ''
+);
+
 
 const router = Router();
 
@@ -63,7 +74,7 @@ router.post('/create-order', authMiddleware, async (req: AuthRequest, res) => {
     const transactionId = insertResult.insertId;
     const cashfreeOrderId = `GOLD_TXN_${userId}_${transactionId}_${Date.now()}`;
 
-    // 2. Create Cashfree order request
+    // 2. Create Cashfree order request (Payload is correct)
     const cashfreeOrderRequest = {
       order_id: cashfreeOrderId,
       order_amount: amount,
@@ -80,8 +91,8 @@ router.post('/create-order', authMiddleware, async (req: AuthRequest, res) => {
       order_note: `Purchase of ${grams}g gold.`,
     };
 
-    // --- 3. THIS IS THE FIX (cashfree.pg.orders.create) ---
-    const cashfreeResponse = await cashfree.pg.orders.create(cashfreeOrderRequest);
+    // --- 3. THIS IS THE FIX (Call the method on the INSTANCE) ---
+    const cashfreeResponse = await cashfreeInstance.PGCreateOrder(cashfreeOrderRequest);
     // --- END OF FIX ---
 
     // 4. Update our transaction with the Cashfree Order ID
@@ -100,7 +111,8 @@ router.post('/create-order', authMiddleware, async (req: AuthRequest, res) => {
 
   } catch (error: any) {
     if (connection) await connection.rollback();
-    console.error('Cashfree error:', error.response?.data || error.message);
+    // Log the actual error structure from Cashfree if available
+    console.error('Cashfree error:', error.response?.data?.message || error.message); 
     res.status(500).json({ message: 'Server error during order creation' });
   } finally {
     if (connection) connection.release();
@@ -123,8 +135,8 @@ router.post('/verify-payment', authMiddleware, async (req: AuthRequest, res) => 
   let connection;
   try {
     // 1. Fetch order status from Cashfree
-    // --- THIS IS THE SECOND FIX (cashfree.pg.orders.fetch) ---
-    const verificationResponse = await cashfree.pg.orders.fetch(order_id);
+    // --- THIS IS THE SECOND FIX (Call the method on the INSTANCE) ---
+    const verificationResponse = await cashfreeInstance.PGFetchOrder(order_id);
     // --- END OF FIX ---
     const order = verificationResponse.data;
 
@@ -177,7 +189,8 @@ router.post('/verify-payment', authMiddleware, async (req: AuthRequest, res) => 
 
   } catch (error: any) {
     if (connection) await connection.rollback();
-    console.error('Verification error:', error.response?.data || error.message);
+    // Log the actual error structure from Cashfree if available
+    console.error('Verification error:', error.response?.data?.message || error.message);
     res.status(500).json({ message: 'Server error during payment verification' });
   } finally {
     if (connection) connection.release();
