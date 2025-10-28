@@ -72,3 +72,36 @@ CREATE TABLE IF NOT EXISTS portfolio (
 USE gold_app;
 ALTER TABLE transactions
 ADD COLUMN cashfree_order_id VARCHAR(255) NULL AFTER payment_id;
+
+USE gold_app;
+ALTER TABLE transactions
+ADD COLUMN rejected_reason TEXT NULL DEFAULT NULL AFTER status;
+
+-- Be careful with ALTER ENUM, backup first if needed
+-- ALTER TABLE transactions
+-- MODIFY COLUMN status ENUM('pending', 'completed', 'failed', 'rejected') NOT NULL DEFAULT 'pending';
+
+USE gold_app;
+
+ALTER TABLE users
+ADD COLUMN bank_account_name VARCHAR(255) NULL DEFAULT NULL,
+ADD COLUMN bank_account_number VARCHAR(50) NULL DEFAULT NULL, -- Stored as VARCHAR for flexibility
+ADD COLUMN bank_ifsc_code VARCHAR(20) NULL DEFAULT NULL;
+
+USE gold_app;
+
+ALTER TABLE transactions
+ADD COLUMN total_invested_at_txn DECIMAL(12, 2) NULL DEFAULT NULL AFTER price_per_gram,
+ADD COLUMN profit_loss_at_txn DECIMAL(12, 2) NULL DEFAULT NULL AFTER total_invested_at_txn;
+
+-- Optional: Add index for faster lookups if needed later
+-- CREATE INDEX idx_user_status_type ON transactions (user_id, status, type);
+
+USE gold_app;
+
+ALTER TABLE users
+ADD COLUMN pan_card_number VARCHAR(10) NULL DEFAULT NULL UNIQUE, -- PAN is 10 alphanumeric characters
+ADD COLUMN aadhaar_card_number VARCHAR(12) NULL DEFAULT NULL UNIQUE; -- Aadhaar is 12 digits
+-- Run this query in MySQL:
+ALTER TABLE transactions
+MODIFY COLUMN status ENUM('pending', 'completed', 'failed', 'rejected', 'pending_payout') NOT NULL DEFAULT 'pending';
